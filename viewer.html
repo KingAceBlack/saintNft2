@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gear NFT Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .viewer-container {
+            background: #16213e;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+            max-height: 90vh;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            max-width: 600px;
+            max-height: 80vh;
+            height: auto;
+            border-radius: 15px;
+            background: #0f3460;
+            display: block;
+            image-rendering: crisp-edges;
+        }
+        .info {
+            width: 300px;
+            padding: 20px;
+            background: #0f3460;
+            border-radius: 10px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+        .trait {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .trait-label { color: #64b5f6; font-weight: 600; }
+        .trait-value { color: #e0e0e0; text-align: right; max-width: 60%; font-size: 0.9em; }
+        .loading { text-align: center; color: white; padding: 40px; font-size: 1.2em; }
+        .error { text-align: center; color: #ff6b6b; padding: 40px; font-size: 1.1em; }
+        @media (max-width: 968px) {
+            .viewer-container { flex-direction: column; }
+            .info { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <div class="canvas-wrapper">
+            <canvas id="nftCanvas" width="2160" height="2160"></canvas>
+        </div>
+        <div class="info" id="info">
+            <div class="loading">Loading NFT...</div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = "https://raw.githubusercontent.com/KingAceBlack/saintNft2/main";
+
+        const NO_ITEM = {
+            'head-gear': `${BASE_URL}/head-gear/NoHead_Simple.png`,
+            'chest-gear': `${BASE_URL}/chest-gear/NoChest_Simple.png`,
+            'hand-gear': `${BASE_URL}/hand-gear/NoHand_Simple.png`,
+            'waist-gear': `${BASE_URL}/waist-gear/NoWaist_Simple.png`,
+            'foot-gear': `${BASE_URL}/foot-gear/NoFoot_Simple.png`,
+            'ring-gear': `${BASE_URL}/ring-gear/HoS_Ring_6_NoRing_Simple.png`,
+            'neck-gear': `${BASE_URL}/neck-gear/NoNeck.png`,
+            'weapon': `${BASE_URL}/weapon/NoWeapon_Simple.png`,
+            'order-gear': `${BASE_URL}/order-gear/NoOrder.png`
+        };
+
+        const HEAD_FILENAMES = ['AncientHelm','OrnateHelm','GreatHelm','FullHelm','Helm','DemonCrown','DragonsCrown','WarCap','LeatherCap','Cap','Crown','DivineHood','SilkHood','LinenHood','Hood'];
+        const CHEST_FILENAMES = ['DivineRobe','SilkRobe','LinenRobe','Robe','Shirt','DemonHusk','DragonskinArmor','StuddedLeatherArmor','HardLeatherArmor','LeatherArmor','HolyChestplate','OrnateChestplate','PlateMail','ChainMail','RingMail'];
+        const HAND_FILENAMES = ['HolyGauntlets','OrnateGauntlets','Gauntlets','ChainGloves','HeavyGloves','DemonsHands','DragonskinGloves','StuddedLeatherGloves','HardLeatherGloves','LeatherGloves','DivineGloves','SilkGloves','WoolGloves','LinenGloves','Gloves'];
+        const WAIST_FILENAMES = ['OrnateBelt','WarBelt','PlatedBelt','MeshBelt','HeavyBelt','DemonhideBelt','DragonskinBelt','StuddedLeatherBelt','HardLeatherBelt','LeatherBelt','BrightsilkSash','SilkSash','WoolSash','LinenSash','Sash'];
+        const FOOT_FILENAMES = ['HolyGreaves','OrnateGreaves','Greaves','ChainBoots','HeavyBoots','DemonhideBoots','DragonskinBoots','StuddedLeatherBoots','HardLeatherBoots','LeatherBoots','DivineSlippers','SilkSlippers','WoolShoes','LinenShoes','Shoes'];
+        const RING_FILENAMES = ['GoldRing','SilverRing','BronzeRing','PlatinumRing','TitaniumRing'];
+        const NECK_FILENAMES = ['Necklace','Amulet','Pendant'];
+        const WEAPON_FILENAMES = ['Warhammer','Quarterstaff','Maul','Mace','Club','Katana','Falchion','Scimitar','LongSword','ShortSword','GhostWand','GraveWand','BoneWand','Wand','Grimoire','Chronicle','Tome','Book'];
+
+        const ORDER_SUFFIX = ['Simple','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+        const ORDER_BG = ['NoOrder','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+
+        const HEAD_NAMES = ["Ancient Helm","Ornate Helm","Great Helm","Full Helm","Helm","Demon Crown","Dragon's Crown","War Cap","Leather Cap","Cap","Crown","Divine Hood","Silk Hood","Linen Hood","Hood"];
+        const CHEST_NAMES = ["Divine Robe","Silk Robe","Linen Robe","Robe","Shirt","Demon Husk","Dragonskin Armor","Studded Leather Armor","Hard Leather Armor","Leather Armor","Holy Chestplate","Ornate Chestplate","Plate Mail","Chain Mail","Ring Mail"];
+        const HAND_NAMES = ["Holy Gauntlets","Ornate Gauntlets","Gauntlets","Chain Gloves","Heavy Gloves","Demon's Hands","Dragonskin Gloves","Studded Leather Gloves","Hard Leather Gloves","Leather Gloves","Divine Gloves","Silk Gloves","Wool Gloves","Linen Gloves","Gloves"];
+        const WAIST_NAMES = ["Ornate Belt","War Belt","Plated Belt","Mesh Belt","Heavy Belt","Demonhide Belt","Dragonskin Belt","Studded Leather Belt","Hard Leather Belt","Leather Belt","Brightsilk Sash","Silk Sash","Wool Sash","Linen Sash","Sash"];
+        const FOOT_NAMES = ["Holy Greaves","Ornate Greaves","Greaves","Chain Boots","Heavy Boots","Demonhide Boots","Dragonskin Boots","Studded Leather Boots","Hard Leather Boots","Leather Boots","Divine Slippers","Silk Slippers","Wool Shoes","Linen Shoes","Shoes"];
+        const RING_NAMES = ["Gold Ring","Silver Ring","Bronze Ring","Platinum Ring","Titanium Ring"];
+        const NECK_NAMES = ["Necklace","Amulet","Pendant"];
+        const WEAPON_NAMES = ["Warhammer","Quarterstaff","Maul","Mace","Club","Katana","Falchion","Scimitar","Long Sword","Short Sword","Ghost Wand","Grave Wand","Bone Wand","Wand","Grimoire","Chronicle","Tome","Book"];
+        const ORDER_NAMES = ["None","Power","Giants","Titans","Skill","Perfection","Brilliance","Enlightenment","Protection","Anger","Rage","Fury","Vitriol","Fox","Detection","Reflection","Twins"];
+        const SUFFIX_DISPLAY = [""," of Power"," of Giants"," of Titans"," of Skill"," of Perfection"," of Brilliance"," of Enlightenment"," of Protection"," of Anger"," of Rage"," of Fury"," of Vitriol"," of the Fox"," of Detection"," of Reflection"," of the Twins"];
+        const NAME_PREFIXES = ["","Agony","Apocalypse","Armageddon","Beast","Behemoth","Blight","Blood","Bramble","Brimstone","Brood","Carrion","Cataclysm","Chimeric","Corpse","Corruption","Damnation","Death","Demon","Dire","Dragon","Dread","Doom","Dusk","Eagle","Empyrean","Fate","Foe","Gale","Ghoul","Gloom","Glyph","Golem","Grim","Hate","Havoc","Honour","Horror","Hypnotic","Kraken","Loath","Maelstrom","Mind","Miracle","Morbid","Oblivion","Onslaught","Pain","Pandemonium","Phoenix","Plague","Rage","Rapture","Rune","Skull","Sol","Soul","Sorrow","Spirit","Storm","Tempest","Torment","Vengeance","Victory","Viper","Vortex","Woe","Wrath","Light's","Shimmering"];
+        const NAME_SUFFIXES = ["","Bane","Root","Bite","Song","Roar","Grasp","Instrument","Glow","Bender","Shadow","Whisper","Shout","Growl","Tear","Peak","Form","Sun","Moon"];
+
+        let loadedCount = 0;
+        const totalImages = 9;
+
+        function buildImageUrl(folder, filenames, baseId, suffixId, namePrefixId, nameSuffixId) {
+            const baseName = filenames[baseId];
+            if (!baseName) return NO_ITEM[folder];
+            
+            const hasName = (namePrefixId > 0 && nameSuffixId > 0);
+            let suffix;
+            
+            if (suffixId === 0) {
+                suffix = hasName ? 'Plus1' : 'Simple';
+            } else {
+                const order = ORDER_SUFFIX[suffixId];
+                suffix = hasName ? `${order}_Plus1` : order;
+            }
+            
+            return `${BASE_URL}/${folder}/${baseName}_${suffix}.png`;
+        }
+
+        function buildOrderUrl(orderIndex) {
+            return `${BASE_URL}/order-gear/${ORDER_BG[orderIndex] || 'NoOrder'}.png`;
+        }
+
+        function buildDisplayName(names, baseId, suffixId, namePrefixId, nameSuffixId, plusOne) {
+            let name = names[baseId] || "Unknown";
+            if (suffixId > 0) name += SUFFIX_DISPLAY[suffixId];
+            if (namePrefixId > 0 && nameSuffixId > 0) {
+                name = `"${NAME_PREFIXES[namePrefixId]} ${NAME_SUFFIXES[nameSuffixId]}" ${name}`;
+            }
+            if (plusOne) name += " +1";
+            return name;
+        }
+
+        function getURLParams() {
+            const p = new URLSearchParams(window.location.search);
+            return {
+                head: { baseId: parseInt(p.get('head')||'0'), suffixId: parseInt(p.get('headSuffix')||'0'), namePrefixId: parseInt(p.get('headPrefix')||'0'), nameSuffixId: parseInt(p.get('headNameSuffix')||'0'), plusOne: p.get('headPlus')==='1' },
+                chest: { baseId: parseInt(p.get('chest')||'0'), suffixId: parseInt(p.get('chestSuffix')||'0'), namePrefixId: parseInt(p.get('chestPrefix')||'0'), nameSuffixId: parseInt(p.get('chestNameSuffix')||'0'), plusOne: p.get('chestPlus')==='1' },
+                hand: { baseId: parseInt(p.get('hand')||'0'), suffixId: parseInt(p.get('handSuffix')||'0'), namePrefixId: parseInt(p.get('handPrefix')||'0'), nameSuffixId: parseInt(p.get('handNameSuffix')||'0'), plusOne: p.get('handPlus')==='1' },
+                waist: { baseId: parseInt(p.get('waist')||'0'), suffixId: parseInt(p.get('waistSuffix')||'0'), namePrefixId: parseInt(p.get('waistPrefix')||'0'), nameSuffixId: parseInt(p.get('waistNameSuffix')||'0'), plusOne: p.get('waistPlus')==='1' },
+                foot: { baseId: parseInt(p.get('foot')||'0'), suffixId: parseInt(p.get('footSuffix')||'0'), namePrefixId: parseInt(p.get('footPrefix')||'0'), nameSuffixId: parseInt(p.get('footNameSuffix')||'0'), plusOne: p.get('footPlus')==='1' },
+                ring: { baseId: parseInt(p.get('ring')||'0'), suffixId: parseInt(p.get('ringSuffix')||'0'), namePrefixId: parseInt(p.get('ringPrefix')||'0'), nameSuffixId: parseInt(p.get('ringNameSuffix')||'0'), plusOne: p.get('ringPlus')==='1' },
+                neck: { baseId: parseInt(p.get('neck')||'0'), suffixId: parseInt(p.get('neckSuffix')||'0'), namePrefixId: parseInt(p.get('neckPrefix')||'0'), nameSuffixId: parseInt(p.get('neckNameSuffix')||'0'), plusOne: p.get('neckPlus')==='1' },
+                weapon: { baseId: parseInt(p.get('weapon')||'0'), suffixId: parseInt(p.get('weaponSuffix')||'0'), namePrefixId: parseInt(p.get('weaponPrefix')||'0'), nameSuffixId: parseInt(p.get('weaponNameSuffix')||'0'), plusOne: p.get('weaponPlus')==='1' },
+                order: parseInt(p.get('order')||'0'),
+                nftName: p.get('name') || null
+            };
+        }
+
+        function updateLoadingProgress(canvas, ctx, slotName) {
+            loadedCount++;
+            const percent = Math.round((loadedCount / totalImages) * 100);
+            
+            ctx.fillStyle = '#0f3460';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Progress bar
+            const barWidth = 400;
+            const barHeight = 30;
+            const barX = (canvas.width - barWidth) / 2;
+            const barY = canvas.height / 2 + 20;
+            
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.fillStyle = '#64b5f6';
+            ctx.fillRect(barX, barY, (barWidth * percent) / 100, barHeight);
+            ctx.strokeStyle = '#64b5f6';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+            
+            // Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Loading... ${percent}%`, canvas.width / 2, canvas.height / 2 - 30);
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#64b5f6';
+            ctx.fillText(slotName, canvas.width / 2, barY + barHeight + 40);
+        }
+
+        function loadImage(url, folder, canvas, ctx, slotName) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    updateLoadingProgress(canvas, ctx, slotName);
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    console.warn(`Failed: ${url}, using fallback`);
+                    const fallback = new Image();
+                    fallback.crossOrigin = "anonymous";
+                    fallback.onload = () => {
+                        updateLoadingProgress(canvas, ctx, slotName);
+                        resolve(fallback);
+                    };
+                    fallback.onerror = () => {
+                        updateLoadingProgress(canvas, ctx, slotName);
+                        resolve(fallback);
+                    };
+                    fallback.src = NO_ITEM[folder];
+                };
+                img.src = url;
+            });
+        }
+
+        async function displayNFT() {
+            const canvas = document.getElementById('nftCanvas');
+            const ctx = canvas.getContext('2d');
+            const info = document.getElementById('info');
+            loadedCount = 0;
+
+            try {
+                const g = getURLParams();
+
+                ctx.fillStyle = '#0f3460';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#64b5f6';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Loading... 0%', canvas.width / 2, canvas.height / 2 - 30);
+
+                const chestImg = await loadImage(buildImageUrl('chest-gear', CHEST_FILENAMES, g.chest.baseId, g.chest.suffixId, g.chest.namePrefixId, g.chest.nameSuffixId), 'chest-gear', canvas, ctx, 'Chest');
+                const waistImg = await loadImage(buildImageUrl('waist-gear', WAIST_FILENAMES, g.waist.baseId, g.waist.suffixId, g.waist.namePrefixId, g.waist.nameSuffixId), 'waist-gear', canvas, ctx, 'Waist');
+                const footImg = await loadImage(buildImageUrl('foot-gear', FOOT_FILENAMES, g.foot.baseId, g.foot.suffixId, g.foot.namePrefixId, g.foot.nameSuffixId), 'foot-gear', canvas, ctx, 'Foot');
+                const neckImg = await loadImage(buildImageUrl('neck-gear', NECK_FILENAMES, g.neck.baseId, g.neck.suffixId, g.neck.namePrefixId, g.neck.nameSuffixId), 'neck-gear', canvas, ctx, 'Neck');
+                const handImg = await loadImage(buildImageUrl('hand-gear', HAND_FILENAMES, g.hand.baseId, g.hand.suffixId, g.hand.namePrefixId, g.hand.nameSuffixId), 'hand-gear', canvas, ctx, 'Hand');
+                const ringImg = await loadImage(buildImageUrl('ring-gear', RING_FILENAMES, g.ring.baseId, g.ring.suffixId, g.ring.namePrefixId, g.ring.nameSuffixId), 'ring-gear', canvas, ctx, 'Ring');
+                const orderImg = await loadImage(buildOrderUrl(g.order), 'order-gear', canvas, ctx, 'Order');
+                const headImg = await loadImage(buildImageUrl('head-gear', HEAD_FILENAMES, g.head.baseId, g.head.suffixId, g.head.namePrefixId, g.head.nameSuffixId), 'head-gear', canvas, ctx, 'Head');
+                const weaponImg = await loadImage(buildImageUrl('weapon', WEAPON_FILENAMES, g.weapon.baseId, g.weapon.suffixId, g.weapon.namePrefixId, g.weapon.nameSuffixId), 'weapon', canvas, ctx, 'Weapon');
+
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.drawImage(chestImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(waistImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(footImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(neckImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(handImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(ringImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(orderImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(headImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(weaponImg, 0, 0, canvas.width, canvas.height);
+
+                let infoHTML = '';
+                if (g.nftName) {
+                    infoHTML += `<div class="trait" style="border-bottom:2px solid #64b5f6;margin-bottom:10px;"><span class="trait-label">Name:</span><span class="trait-value">${g.nftName}</span></div>`;
+                }
+                infoHTML += `
+                    <div class="trait"><span class="trait-label">Head:</span><span class="trait-value">${buildDisplayName(HEAD_NAMES, g.head.baseId, g.head.suffixId, g.head.namePrefixId, g.head.nameSuffixId, g.head.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Chest:</span><span class="trait-value">${buildDisplayName(CHEST_NAMES, g.chest.baseId, g.chest.suffixId, g.chest.namePrefixId, g.chest.nameSuffixId, g.chest.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Hand:</span><span class="trait-value">${buildDisplayName(HAND_NAMES, g.hand.baseId, g.hand.suffixId, g.hand.namePrefixId, g.hand.nameSuffixId, g.hand.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Waist:</span><span class="trait-value">${buildDisplayName(WAIST_NAMES, g.waist.baseId, g.waist.suffixId, g.waist.namePrefixId, g.waist.nameSuffixId, g.waist.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Foot:</span><span class="trait-value">${buildDisplayName(FOOT_NAMES, g.foot.baseId, g.foot.suffixId, g.foot.namePrefixId, g.foot.nameSuffixId, g.foot.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Ring:</span><span class="trait-value">${buildDisplayName(RING_NAMES, g.ring.baseId, g.ring.suffixId, g.ring.namePrefixId, g.ring.nameSuffixId, g.ring.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Neck:</span><span class="trait-value">${buildDisplayName(NECK_NAMES, g.neck.baseId, g.neck.suffixId, g.neck.namePrefixId, g.neck.nameSuffixId, g.neck.plusOne)}</span></div>
+                    <div class="trait"><span class="trait-label">Order:</span><span class="trait-value">${ORDER_NAMES[g.order] || "None"}</span></div>
+                    <div class="trait"><span class="trait-label">Weapon:</span><span class="trait-value">${buildDisplayName(WEAPON_NAMES, g.weapon.baseId, g.weapon.suffixId, g.weapon.namePrefixId, g.weapon.nameSuffixId, g.weapon.plusOne)}</span></div>
+                `;
+                info.innerHTML = infoHTML;
+
+            } catch (error) {
+                console.error('Error:', error);
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ff6b6b';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Error Loading NFT', canvas.width/2, canvas.height/2);
+                info.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        window.onload = displayNFT;
+    </script>
+</body>
+</html>
