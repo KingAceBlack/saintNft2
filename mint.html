@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mint Your Saint</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            background: #16213e;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { color: #64b5f6; margin-bottom: 10px; font-size: 2.5em; }
+        .subtitle { color: #e0e0e0; margin-bottom: 30px; font-size: 1.1em; }
+        .wallet-status {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #e0e0e0;
+        }
+        .wallet-address { color: #64b5f6; font-family: monospace; font-size: 0.9em; word-break: break-all; }
+        .mint-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .mint-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .mint-button:disabled { background: #444; cursor: not-allowed; box-shadow: none; }
+        .connect-button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+            width: 100%;
+        }
+        .connect-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6); }
+        .status-message {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #e0e0e0;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .success { color: #4caf50; }
+        .error { color: #ff6b6b; }
+        .loading { color: #64b5f6; }
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #64b5f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .nft-display { margin-top: 30px; display: none; }
+        .nft-display.show { display: block; }
+        .nft-frame { background: #0f3460; border-radius: 15px; padding: 20px; }
+        canvas {
+            width: 100%;
+            max-width: 500px;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            background: #000000;
+            image-rendering: crisp-edges;
+        }
+        .nft-info {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .trait {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background: #0f3460;
+            border-radius: 5px;
+        }
+        .trait-label { color: #64b5f6; font-weight: 600; font-size: 0.9em; }
+        .trait-value { color: #e0e0e0; font-size: 0.9em; text-align: right; }
+        .view-on-opensea {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .view-on-opensea:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4); }
+        @media (max-width: 768px) { .nft-info { grid-template-columns: 1fr; } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Hall Of Saints</h1>
+        <p class="subtitle">Summon A Saint</p>
+
+        <div id="walletSection">
+            <button class="connect-button" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+        </div>
+
+        <div id="mintSection" style="display: none;">
+            <div class="wallet-status">
+                <div>Connected: <span class="wallet-address" id="walletAddress"></span></div>
+            </div>
+            <button class="mint-button" id="mintBtn" onclick="mintNFT()">Summon Saint</button>
+            <div class="status-message" id="statusMessage">Ready to summon the Divine</div>
+        </div>
+
+        <div class="nft-display" id="nftDisplay">
+            <div class="nft-frame">
+                <h2 style="color: #64b5f6; margin-bottom: 15px;" id="nftName">Saint #0</h2>
+                <canvas id="nftCanvas" width="2160" height="2160"></canvas>
+                <div class="nft-info" id="nftInfo"></div>
+                <a id="openseaLink" class="view-on-opensea" href="#" target="_blank">View on OpenSea</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONTRACT_ADDRESS = "0x360261e89CB3B9F8dE07f89D133c5f16D8729A11";
+        const CONTRACT_ABI = [
+            "function mint() external returns (uint256)",
+            "function tokenURI(uint256 tokenId) external view returns (string memory)",
+            "event Minted(uint256 indexed id)"
+        ];
+
+        let provider, signer, contract, userAddress;
+
+        // Base URL for images
+        const BASE_URL = "https://raw.githubusercontent.com/KingAceBlack/saintNft2/main";
+
+        // NoItem fallbacks
+        const NO_ITEM = {
+            'head-gear': `${BASE_URL}/head-gear/NoHead_Simple.png`,
+            'chest-gear': `${BASE_URL}/chest-gear/NoChest_Simple.png`,
+            'hand-gear': `${BASE_URL}/hand-gear/NoHand_Simple.png`,
+            'waist-gear': `${BASE_URL}/waist-gear/NoWaist_Simple.png`,
+            'foot-gear': `${BASE_URL}/foot-gear/NoFoot_Simple.png`,
+            'ring-gear': `${BASE_URL}/ring-gear/HoS_Ring_6_NoRing_Simple.png`,
+            'neck-gear': `${BASE_URL}/neck-gear/NoNeck.png`,
+            'weapon': `${BASE_URL}/weapon/NoWeapon_Simple.png`,
+            'order-gear': `${BASE_URL}/order-gear/NoOrder.png`
+        };
+
+        // Filenames for building URLs
+        const HEAD_FILENAMES = ['AncientHelm','OrnateHelm','GreatHelm','FullHelm','Helm','DemonCrown','DragonsCrown','WarCap','LeatherCap','Cap','Crown','DivineHood','SilkHood','LinenHood','Hood'];
+        const CHEST_FILENAMES = ['DivineRobe','SilkRobe','LinenRobe','Robe','Shirt','DemonHusk','DragonskinArmor','StuddedLeatherArmor','HardLeatherArmor','LeatherArmor','HolyChestplate','OrnateChestplate','PlateMail','ChainMail','RingMail'];
+        const HAND_FILENAMES = ['HolyGauntlets','OrnateGauntlets','Gauntlets','ChainGloves','HeavyGloves','DemonsHands','DragonskinGloves','StuddedLeatherGloves','HardLeatherGloves','LeatherGloves','DivineGloves','SilkGloves','WoolGloves','LinenGloves','Gloves'];
+        const WAIST_FILENAMES = ['OrnateBelt','WarBelt','PlatedBelt','MeshBelt','HeavyBelt','DemonhideBelt','DragonskinBelt','StuddedLeatherBelt','HardLeatherBelt','LeatherBelt','BrightsilkSash','SilkSash','WoolSash','LinenSash','Sash'];
+        const FOOT_FILENAMES = ['HolyGreaves','OrnateGreaves','Greaves','ChainBoots','HeavyBoots','DemonhideBoots','DragonskinBoots','StuddedLeatherBoots','HardLeatherBoots','LeatherBoots','DivineSlippers','SilkSlippers','WoolShoes','LinenShoes','Shoes'];
+        const RING_FILENAMES = ['GoldRing','SilverRing','BronzeRing','PlatinumRing','TitaniumRing'];
+        const NECK_FILENAMES = ['Necklace','Amulet','Pendant'];
+        const WEAPON_FILENAMES = ['Warhammer','Quarterstaff','Maul','Mace','Club','Katana','Falchion','Scimitar','LongSword','ShortSword','GhostWand','GraveWand','BoneWand','Wand','Grimoire','Chronicle','Tome','Book'];
+
+        const ORDER_SUFFIX = ['Simple','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+        const ORDER_BG = ['NoOrder','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+
+        // Build image URL based on item properties
+        function buildImageUrl(folder, filenames, baseId, suffixId, namePrefixId, nameSuffixId) {
+            const baseName = filenames[baseId];
+            if (!baseName) return NO_ITEM[folder];
+            
+            const hasName = (namePrefixId > 0 && nameSuffixId > 0);
+            let suffix;
+            
+            if (suffixId === 0) {
+                suffix = hasName ? 'Plus1' : 'Simple';
+            } else {
+                const order = ORDER_SUFFIX[suffixId];
+                suffix = hasName ? `${order}_Plus1` : order;
+            }
+            
+            return `${BASE_URL}/${folder}/${baseName}_${suffix}.png`;
+        }
+
+        function buildOrderUrl(orderIndex) {
+            return `${BASE_URL}/order-gear/${ORDER_BG[orderIndex] || 'NoOrder'}.png`;
+        }
+
+        // Load image with fallback
+        function loadImage(url, folder) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = () => {
+                    console.warn(`Failed: ${url}, using fallback`);
+                    const fallback = new Image();
+                    fallback.crossOrigin = "anonymous";
+                    fallback.onload = () => resolve(fallback);
+                    fallback.onerror = () => resolve(fallback);
+                    fallback.src = NO_ITEM[folder];
+                };
+                img.src = url;
+            });
+        }
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this dApp!');
+                    return;
+                }
+
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAddress = accounts[0];
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                document.getElementById('walletSection').style.display = 'none';
+                document.getElementById('mintSection').style.display = 'block';
+                document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        location.reload();
+                    } else {
+                        userAddress = accounts[0];
+                        document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showStatus('Failed to connect wallet: ' + error.message, 'error');
+            }
+        }
+
+        async function mintNFT() {
+            const mintBtn = document.getElementById('mintBtn');
+
+            try {
+                mintBtn.disabled = true;
+                showStatus('<div class="spinner"></div> Preparing transaction...', 'loading');
+
+                const tx = await contract.mint();
+                showStatus('<div class="spinner"></div> Minting in progress... Waiting for confirmation', 'loading');
+
+                const receipt = await tx.wait();
+                const mintedEvent = receipt.events.find(e => e.event === 'Minted');
+                const tokenId = mintedEvent.args.id.toString();
+
+                showStatus('✅ Successfully minted Saint #' + tokenId + '!', 'success');
+                await displayNFT(tokenId);
+
+            } catch (error) {
+                console.error('Minting error:', error);
+                let errorMsg = 'Minting failed';
+                if (error.code === 4001) {
+                    errorMsg = 'Transaction rejected by user';
+                } else if (error.message) {
+                    errorMsg = error.message;
+                }
+                showStatus('❌ ' + errorMsg, 'error');
+                mintBtn.disabled = false;
+            }
+        }
+
+        async function displayNFT(tokenId) {
+            try {
+                const tokenURI = await contract.tokenURI(tokenId);
+                const base64Data = tokenURI.replace('data:application/json;base64,', '');
+                const jsonString = atob(base64Data);
+                const metadata = JSON.parse(jsonString);
+
+                document.getElementById('nftName').textContent = metadata.name;
+
+                // Extract gear data from image URL
+                const imageUrl = metadata.image;
+                const queryString = imageUrl.split('?')[1];
+                const params = new URLSearchParams(queryString);
+
+                const gearData = {
+                    head: {
+                        baseId: parseInt(params.get('head') || '0'),
+                        suffixId: parseInt(params.get('headSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('headPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('headNameSuffix') || '0')
+                    },
+                    chest: {
+                        baseId: parseInt(params.get('chest') || '0'),
+                        suffixId: parseInt(params.get('chestSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('chestPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('chestNameSuffix') || '0')
+                    },
+                    hand: {
+                        baseId: parseInt(params.get('hand') || '0'),
+                        suffixId: parseInt(params.get('handSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('handPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('handNameSuffix') || '0')
+                    },
+                    waist: {
+                        baseId: parseInt(params.get('waist') || '0'),
+                        suffixId: parseInt(params.get('waistSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('waistPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('waistNameSuffix') || '0')
+                    },
+                    foot: {
+                        baseId: parseInt(params.get('foot') || '0'),
+                        suffixId: parseInt(params.get('footSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('footPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('footNameSuffix') || '0')
+                    },
+                    ring: {
+                        baseId: parseInt(params.get('ring') || '0'),
+                        suffixId: parseInt(params.get('ringSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('ringPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('ringNameSuffix') || '0')
+                    },
+                    neck: {
+                        baseId: parseInt(params.get('neck') || '0'),
+                        suffixId: parseInt(params.get('neckSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('neckPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('neckNameSuffix') || '0')
+                    },
+                    weapon: {
+                        baseId: parseInt(params.get('weapon') || '0'),
+                        suffixId: parseInt(params.get('weaponSuffix') || '0'),
+                        namePrefixId: parseInt(params.get('weaponPrefix') || '0'),
+                        nameSuffixId: parseInt(params.get('weaponNameSuffix') || '0')
+                    },
+                    order: parseInt(params.get('order') || '0')
+                };
+
+                // Render NFT on canvas
+                await renderNFT(gearData);
+
+                // Display attributes
+                let attributesHTML = '';
+                metadata.attributes.forEach(attr => {
+                    attributesHTML += `
+                        <div class="trait">
+                            <span class="trait-label">${attr.trait_type}:</span>
+                            <span class="trait-value">${attr.value}</span>
+                        </div>
+                    `;
+                });
+                document.getElementById('nftInfo').innerHTML = attributesHTML;
+
+                // Set OpenSea link (Base mainnet)
+                const network = await provider.getNetwork();
+                let openseaUrl;
+                if (network.chainId === 8453) {
+                    openseaUrl = `https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tokenId}`;
+                } else if (network.chainId === 84532) {
+                    openseaUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${tokenId}`;
+                } else {
+                    openseaUrl = `https://opensea.io/assets/${CONTRACT_ADDRESS}/${tokenId}`;
+                }
+                document.getElementById('openseaLink').href = openseaUrl;
+
+                document.getElementById('nftDisplay').classList.add('show');
+
+            } catch (error) {
+                console.error('Error displaying NFT:', error);
+                showStatus('NFT minted but failed to load display', 'error');
+            }
+        }
+
+        async function renderNFT(g) {
+            const canvas = document.getElementById('nftCanvas');
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#64b5f6';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading NFT...', canvas.width/2, canvas.height/2);
+
+            try {
+                // Build URLs for each slot
+                const chestUrl = buildImageUrl('chest-gear', CHEST_FILENAMES, g.chest.baseId, g.chest.suffixId, g.chest.namePrefixId, g.chest.nameSuffixId);
+                const waistUrl = buildImageUrl('waist-gear', WAIST_FILENAMES, g.waist.baseId, g.waist.suffixId, g.waist.namePrefixId, g.waist.nameSuffixId);
+                const footUrl = buildImageUrl('foot-gear', FOOT_FILENAMES, g.foot.baseId, g.foot.suffixId, g.foot.namePrefixId, g.foot.nameSuffixId);
+                const neckUrl = buildImageUrl('neck-gear', NECK_FILENAMES, g.neck.baseId, g.neck.suffixId, g.neck.namePrefixId, g.neck.nameSuffixId);
+                const handUrl = buildImageUrl('hand-gear', HAND_FILENAMES, g.hand.baseId, g.hand.suffixId, g.hand.namePrefixId, g.hand.nameSuffixId);
+                const ringUrl = buildImageUrl('ring-gear', RING_FILENAMES, g.ring.baseId, g.ring.suffixId, g.ring.namePrefixId, g.ring.nameSuffixId);
+                const orderUrl = buildOrderUrl(g.order);
+                const headUrl = buildImageUrl('head-gear', HEAD_FILENAMES, g.head.baseId, g.head.suffixId, g.head.namePrefixId, g.head.nameSuffixId);
+                const weaponUrl = buildImageUrl('weapon', WEAPON_FILENAMES, g.weapon.baseId, g.weapon.suffixId, g.weapon.namePrefixId, g.weapon.nameSuffixId);
+
+                // Load all images
+                const [chestImg, waistImg, footImg, neckImg, handImg, ringImg, orderImg, headImg, weaponImg] = await Promise.all([
+                    loadImage(chestUrl, 'chest-gear'),
+                    loadImage(waistUrl, 'waist-gear'),
+                    loadImage(footUrl, 'foot-gear'),
+                    loadImage(neckUrl, 'neck-gear'),
+                    loadImage(handUrl, 'hand-gear'),
+                    loadImage(ringUrl, 'ring-gear'),
+                    loadImage(orderUrl, 'order-gear'),
+                    loadImage(headUrl, 'head-gear'),
+                    loadImage(weaponUrl, 'weapon')
+                ]);
+
+                // Clear and draw
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw layers (bottom to top)
+                ctx.drawImage(chestImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(waistImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(footImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(neckImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(handImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(ringImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(orderImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(headImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(weaponImg, 0, 0, canvas.width, canvas.height);
+
+            } catch (error) {
+                console.error('Error rendering NFT:', error);
+                ctx.fillStyle = '#ff6b6b';
+                ctx.font = 'bold 36px Arial';
+                ctx.fillText('Error Loading Images', canvas.width/2, canvas.height/2);
+                throw error;
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = message;
+            statusDiv.className = 'status-message ' + type;
+        }
+
+        // Check if wallet is already connected on page load
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error('Error checking wallet connection:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
