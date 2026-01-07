@@ -254,6 +254,33 @@
                     return;
                 }
 
+                // Base Sepolia chain config
+                const baseSepolia = {
+                    chainId: '0x14a34', // 84532 in hex
+                    chainName: 'Base Sepolia',
+                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                    rpcUrls: ['https://sepolia.base.org'],
+                    blockExplorerUrls: ['https://sepolia.basescan.org']
+                };
+
+                // Try to switch to Base Sepolia
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: baseSepolia.chainId }]
+                    });
+                } catch (switchError) {
+                    // Chain not added, add it
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [baseSepolia]
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                }
+
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 userAddress = accounts[0];
                 provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -271,6 +298,10 @@
                         userAddress = accounts[0];
                         document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
                     }
+                });
+
+                window.ethereum.on('chainChanged', () => {
+                    location.reload();
                 });
 
             } catch (error) {
