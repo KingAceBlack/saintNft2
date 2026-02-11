@@ -230,10 +230,56 @@
             cursor: pointer;
             transition: all 0.3s ease;
             margin-bottom: 15px;
+            margin-right: 10px;
         }
         .randomize-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+        .synth-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+        .synth-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .synth-btn:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .wallet-input {
+            background: #0f3460;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #e0e0e0;
+            font-family: monospace;
+            font-size: 0.85em;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+        }
+        .wallet-input:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        .wallet-input::placeholder {
+            color: #666;
         }
 
         .nft-result {
@@ -271,7 +317,11 @@
 
         <div class="main-layout">
             <div class="gear-panel">
-                <button class="randomize-btn" onclick="randomizeAll()">🎲 Randomize All</button>
+                <div class="btn-row">
+                    <button class="randomize-btn" onclick="randomizeAll()">🎲 Randomize All</button>
+                    <button class="synth-btn" id="synthBtn" onclick="fetchSynthLoot()">⛓️ Synth Loot</button>
+                </div>
+                <input type="text" class="wallet-input" id="synthWallet" placeholder="Enter wallet address (default: 0xdEd38a0D62B8AFe5Af577afC97E3c6C0BDCBf578)" value="0xdEd38a0D62B8AFe5Af577afC97E3c6C0BDCBf578">
                 
                 <div class="saint-name-section">
                     <h3>👤 Saint Identity</h3>
@@ -576,6 +626,22 @@
             'order-gear': `${BASE_URL}/order-gear/NoOrder.png`
         };
 
+        // Synthetic Loot Contract
+        const SYNTH_LOOT_ADDRESS = "0x869ad3dfb0f9acb9094ba85228008981be6dbdde";
+        const SYNTH_LOOT_RPC = "https://eth-mainnet.g.alchemy.com/v2/demo"; // Public RPC
+        
+        // Function selectors for Synthetic Loot
+        const SYNTH_SELECTORS = {
+            weapon: "0x6c390589",
+            chest: "0x96a7bb85",
+            foot: "0xb5fb5fa4",
+            hand: "0x57e3d14d",
+            head: "0x7d9d7cc2",
+            neck: "0xb4630ab0",
+            ring: "0xe73702cf",
+            waist: "0x455ba9ca"
+        };
+
         function populateSelect(id, options, startIndex = 0) {
             const select = document.getElementById(id);
             select.innerHTML = '';
@@ -833,6 +899,137 @@
             document.getElementById('saintAdjective').value = Math.floor(Math.random() * saintAdjectives.length);
 
             updatePreview();
+        }
+
+        // Decode uint256 array from hex response
+        function decodeUint256Array(hex, count) {
+            if (hex.startsWith('0x')) hex = hex.slice(2);
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const startIndex = i * 64;
+                const segment = hex.slice(startIndex, startIndex + 64);
+                values.push(parseInt(segment, 16));
+            }
+            return values;
+        }
+
+        // Make JSON-RPC call to Ethereum
+        async function ethCall(to, data, rpcUrl) {
+            const response = await fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_call',
+                    params: [{ to, data }, 'latest'],
+                    id: 1
+                })
+            });
+            const json = await response.json();
+            if (json.error) throw new Error(json.error.message);
+            return json.result;
+        }
+
+        async function fetchSynthLoot() {
+            const synthBtn = document.getElementById('synthBtn');
+            const walletInput = document.getElementById('synthWallet').value.trim();
+            
+            // Validate wallet address
+            if (!walletInput.match(/^0x[a-fA-F0-9]{40}$/)) {
+                alert('Please enter a valid Ethereum wallet address');
+                return;
+            }
+
+            // Pad the wallet address for the call data
+            const paddedAddress = walletInput.toLowerCase().replace('0x', '').padStart(64, '0');
+
+            synthBtn.disabled = true;
+            synthBtn.textContent = '⏳ Fetching...';
+            showStatus('<div class="spinner"></div> Fetching Synthetic Loot from Ethereum...', 'loading');
+
+            try {
+                // Try multiple RPC endpoints
+                const rpcEndpoints = [
+                    'https://eth.llamarpc.com',
+                    'https://rpc.ankr.com/eth',
+                    'https://ethereum.publicnode.com',
+                    'https://1rpc.io/eth'
+                ];
+
+                let rpcUrl = rpcEndpoints[0];
+                
+                // Test which RPC works
+                for (const endpoint of rpcEndpoints) {
+                    try {
+                        const testResponse = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                jsonrpc: '2.0',
+                                method: 'eth_blockNumber',
+                                params: [],
+                                id: 1
+                            })
+                        });
+                        if (testResponse.ok) {
+                            rpcUrl = endpoint;
+                            break;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+
+                console.log('Using RPC:', rpcUrl);
+
+                // Fetch all slots in parallel
+                const slotPromises = Object.entries(SYNTH_SELECTORS).map(async ([slot, selector]) => {
+                    const data = selector + paddedAddress;
+                    const result = await ethCall(SYNTH_LOOT_ADDRESS, data, rpcUrl);
+                    const stats = decodeUint256Array(result, 5);
+                    return { slot, stats };
+                });
+
+                const results = await Promise.all(slotPromises);
+
+                // Process results and populate form
+                results.forEach(({ slot, stats }) => {
+                    const [baseId, suffixId, prefixId, nameSuffixId, augmented] = stats;
+                    
+                    // Map slot names to form IDs
+                    const formSlot = slot; // head, chest, hand, waist, foot, ring, neck, weapon
+                    
+                    // Set base item
+                    document.getElementById(`${formSlot}Base`).value = baseId;
+                    
+                    // Set suffix (order) - Synth Loot uses 1-indexed, our form uses 0 for none
+                    // If suffixId > 0, it means there's a suffix
+                    document.getElementById(`${formSlot}Suffix`).value = suffixId > 0 ? suffixId : 0;
+                    
+                    // Set name prefix
+                    document.getElementById(`${formSlot}NamePrefix`).value = prefixId > 0 ? prefixId : 0;
+                    
+                    // Set name suffix  
+                    document.getElementById(`${formSlot}NameSuffix`).value = nameSuffixId > 0 ? nameSuffixId : 0;
+                    
+                    // Set +1 augmented
+                    document.getElementById(`${formSlot}PlusOne`).checked = augmented === 1;
+                });
+
+                // Randomize saint name (Synth Loot doesn't have this)
+                document.getElementById('saintName').value = Math.floor(Math.random() * saintNames.length);
+                document.getElementById('saintAdjective').value = Math.floor(Math.random() * saintAdjectives.length);
+
+                updatePreview();
+                showStatus('✅ Synthetic Loot loaded for ' + walletInput.slice(0, 6) + '...' + walletInput.slice(-4), 'success');
+
+            } catch (error) {
+                console.error('Synth Loot fetch error:', error);
+                showStatus('❌ Failed to fetch: ' + error.message, 'error');
+            } finally {
+                synthBtn.disabled = false;
+                synthBtn.textContent = '⛓️ Synth Loot';
+            }
         }
 
         async function connectWallet() {
