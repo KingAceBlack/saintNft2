@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forge Your Saint</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 { color: #64b5f6; font-size: 2.5em; margin-bottom: 10px; }
+        .subtitle { color: #e0e0e0; font-size: 1.1em; }
+        
+        .wallet-bar {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .wallet-address { color: #64b5f6; font-family: monospace; }
+        .connect-btn, .mint-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .connect-btn:hover, .mint-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .mint-btn:disabled { background: #444; cursor: not-allowed; }
+        
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+        @media (max-width: 1000px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+        
+        .gear-panel {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+        }
+        .gear-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .gear-slot {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .gear-slot h3 {
+            color: #64b5f6;
+            margin-bottom: 10px;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .gear-slot h3 .icon { font-size: 1.2em; }
+        
+        .select-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .select-row label {
+            font-size: 0.75em;
+            color: #888;
+            min-width: 50px;
+        }
+        .select-row select {
+            flex: 1;
+            background: #16213e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 6px 8px;
+            font-size: 0.85em;
+            min-width: 120px;
+        }
+        .select-row select:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #64b5f6;
+        }
+        .checkbox-row label {
+            font-size: 0.85em;
+            color: #ccc;
+        }
+        
+        .item-preview {
+            margin-top: 10px;
+            padding: 8px;
+            background: #1a1a2e;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #ffd700;
+            min-height: 24px;
+        }
+        
+        .preview-panel {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            position: sticky;
+            top: 20px;
+        }
+        .preview-panel h2 {
+            color: #64b5f6;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        #previewCanvas {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #000;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .saint-name-display {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .saint-name-display .name {
+            color: #ffd700;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .mint-section {
+            margin-top: 15px;
+        }
+        .mint-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+        }
+        
+        .status-message {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            text-align: center;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .success { color: #4caf50; }
+        .error { color: #ff6b6b; }
+        .loading { color: #64b5f6; }
+        
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #64b5f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .saint-name-section {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .saint-name-section h3 {
+            color: #64b5f6;
+            margin-bottom: 10px;
+        }
+        .saint-name-section .select-row {
+            margin-bottom: 10px;
+        }
+        
+        .randomize-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+        .randomize-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .nft-result {
+            display: none;
+            margin-top: 20px;
+        }
+        .nft-result.show { display: block; }
+        .nft-result a {
+            display: inline-block;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #1a1a2e;
+            text-decoration: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚔️ Forge Your Saint ⚔️</h1>
+            <p class="subtitle">Craft your perfect warrior with custom gear</p>
+        </header>
+
+        <div class="wallet-bar">
+            <div>
+                <span id="walletStatus">Not connected</span>
+                <span class="wallet-address" id="walletAddress"></span>
+            </div>
+            <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+        </div>
+
+        <div class="main-layout">
+            <div class="gear-panel">
+                <button class="randomize-btn" onclick="randomizeAll()">🎲 Randomize All</button>
+                
+                <div class="saint-name-section">
+                    <h3>👤 Saint Identity</h3>
+                    <div class="select-row">
+                        <label>Name:</label>
+                        <select id="saintName" onchange="updatePreview()"></select>
+                    </div>
+                    <div class="select-row">
+                        <label>Title:</label>
+                        <select id="saintAdjective" onchange="updatePreview()"></select>
+                    </div>
+                </div>
+
+                <div class="gear-grid">
+                    <!-- Head -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">🪖</span> Head</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="headBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="headSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="headNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="headNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="headPlusOne" onchange="updatePreview()">
+                            <label for="headPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="headPreview"></div>
+                    </div>
+
+                    <!-- Chest -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">🥋</span> Chest</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="chestBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="chestSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="chestNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="chestNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="chestPlusOne" onchange="updatePreview()">
+                            <label for="chestPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="chestPreview"></div>
+                    </div>
+
+                    <!-- Hand -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">🧤</span> Hands</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="handBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="handSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="handNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="handNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="handPlusOne" onchange="updatePreview()">
+                            <label for="handPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="handPreview"></div>
+                    </div>
+
+                    <!-- Waist -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">🎗️</span> Waist</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="waistBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="waistSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="waistNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="waistNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="waistPlusOne" onchange="updatePreview()">
+                            <label for="waistPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="waistPreview"></div>
+                    </div>
+
+                    <!-- Foot -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">👢</span> Feet</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="footBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="footSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="footNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="footNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="footPlusOne" onchange="updatePreview()">
+                            <label for="footPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="footPreview"></div>
+                    </div>
+
+                    <!-- Ring -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">💍</span> Ring</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="ringBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="ringSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="ringNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="ringNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="ringPlusOne" onchange="updatePreview()">
+                            <label for="ringPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="ringPreview"></div>
+                    </div>
+
+                    <!-- Neck -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">📿</span> Neck</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="neckBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="neckSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="neckNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="neckNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="neckPlusOne" onchange="updatePreview()">
+                            <label for="neckPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="neckPreview"></div>
+                    </div>
+
+                    <!-- Weapon -->
+                    <div class="gear-slot">
+                        <h3><span class="icon">⚔️</span> Weapon</h3>
+                        <div class="select-row">
+                            <label>Base:</label>
+                            <select id="weaponBase" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Order:</label>
+                            <select id="weaponSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Prefix:</label>
+                            <select id="weaponNamePrefix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="select-row">
+                            <label>Suffix:</label>
+                            <select id="weaponNameSuffix" onchange="updatePreview()"></select>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="weaponPlusOne" onchange="updatePreview()">
+                            <label for="weaponPlusOne">+1 (Legendary)</label>
+                        </div>
+                        <div class="item-preview" id="weaponPreview"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="preview-panel">
+                <h2>Preview</h2>
+                <canvas id="previewCanvas" width="540" height="540"></canvas>
+                <div class="saint-name-display">
+                    <div class="name" id="saintNamePreview">Your Saint</div>
+                </div>
+                
+                <div class="mint-section">
+                    <button class="mint-btn" id="mintBtn" onclick="customMint()" disabled>Connect Wallet to Mint</button>
+                    <div class="status-message" id="statusMessage">Configure your Saint above</div>
+                </div>
+
+                <div class="nft-result" id="nftResult">
+                    <p style="color: #4caf50; font-weight: bold;">✅ Saint Minted!</p>
+                    <a id="openseaLink" href="#" target="_blank">View on OpenSea</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONTRACT_ADDRESS = "0x360261e89CB3B9F8dE07f89D133c5f16D8729A11";
+        const CONTRACT_ABI = [
+            "function customMint(tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) head, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) chest, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) hand, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) waist, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) foot, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) ring, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) neck, tuple(uint8 baseId, uint8 suffixId, uint8 namePrefixId, uint8 nameSuffixId, bool plusOne) weapon, uint16 saintName, uint16 saintAdjective) external returns (uint256)",
+            "function tokenURI(uint256 tokenId) external view returns (string memory)",
+            "function nameRouter() external view returns (address)",
+            "function adjectiveRouter() external view returns (address)",
+            "event Minted(uint256 indexed id)"
+        ];
+
+        const NAME_ROUTER_ABI = [
+            "function get(uint16 id) external view returns (string memory)",
+            "function count() external view returns (uint16)"
+        ];
+
+        let provider, signer, contract, userAddress;
+        let saintNames = [];
+        let saintAdjectives = [];
+
+        // Gear data from GearLibrary
+        const HEADGEAR = ["Ancient Helm","Ornate Helm","Great Helm","Full Helm","Helm","Demon Crown","Dragon's Crown","War Cap","Leather Cap","Cap","Crown","Divine Hood","Silk Hood","Linen Hood","Hood"];
+        const CHESTGEAR = ["Divine Robe","Silk Robe","Linen Robe","Robe","Shirt","Demon Husk","Dragonskin Armor","Studded Leather Armor","Hard Leather Armor","Leather Armor","Holy Chestplate","Ornate Chestplate","Plate Mail","Chain Mail","Ring Mail"];
+        const HANDGEAR = ["Holy Gauntlets","Ornate Gauntlets","Gauntlets","Chain Gloves","Heavy Gloves","Demon's Hands","Dragonskin Gloves","Studded Leather Gloves","Hard Leather Gloves","Leather Gloves","Divine Gloves","Silk Gloves","Wool Gloves","Linen Gloves","Gloves"];
+        const WAISTGEAR = ["Ornate Belt","War Belt","Plated Belt","Mesh Belt","Heavy Belt","Demonhide Belt","Dragonskin Belt","Studded Leather Belt","Hard Leather Belt","Leather Belt","Brightsilk Sash","Silk Sash","Wool Sash","Linen Sash","Sash"];
+        const FOOTGEAR = ["Holy Greaves","Ornate Greaves","Greaves","Chain Boots","Heavy Boots","Demonhide Boots","Dragonskin Boots","Studded Leather Boots","Hard Leather Boots","Leather Boots","Divine Slippers","Silk Slippers","Wool Shoes","Linen Shoes","Shoes"];
+        const RINGS = ["Gold Ring","Silver Ring","Bronze Ring","Platinum Ring","Titanium Ring"];
+        const NECKS = ["Necklace","Amulet","Pendant"];
+        const WEAPONS = ["Warhammer","Quarterstaff","Maul","Mace","Club","Katana","Falchion","Scimitar","Long Sword","Short Sword","Ghost Wand","Grave Wand","Bone Wand","Wand","Grimoire","Chronicle","Tome","Book"];
+        
+        const SUFFIXES = ["(None)","of Power","of Giants","of Titans","of Skill","of Perfection","of Brilliance","of Enlightenment","of Protection","of Anger","of Rage","of Fury","of Vitriol","of the Fox","of Detection","of Reflection","of the Twins"];
+        const ORDERS = ["Power","Giants","Titans","Skill","Perfection","Brilliance","Enlightenment","Protection","Anger","Rage","Fury","Vitriol","Fox","Detection","Reflection","Twins"];
+        
+        const NAME_PREFIXES = ["(None)","Agony","Apocalypse","Armageddon","Beast","Behemoth","Blight","Blood","Bramble","Brimstone","Brood","Carrion","Cataclysm","Chimeric","Corpse","Corruption","Damnation","Death","Demon","Dire","Dragon","Dread","Doom","Dusk","Eagle","Empyrean","Fate","Foe","Gale","Ghoul","Gloom","Glyph","Golem","Grim","Hate","Havoc","Honour","Horror","Hypnotic","Kraken","Loath","Maelstrom","Mind","Miracle","Morbid","Oblivion","Onslaught","Pain","Pandemonium","Phoenix","Plague","Rage","Rapture","Rune","Skull","Sol","Soul","Sorrow","Spirit","Storm","Tempest","Torment","Vengeance","Victory","Viper","Vortex","Woe","Wrath","Light's","Shimmering"];
+        const NAME_SUFFIXES = ["(None)","Bane","Root","Bite","Song","Roar","Grasp","Instrument","Glow","Bender","Shadow","Whisper","Shout","Growl","Tear","Peak","Form","Sun","Moon"];
+
+        // Image URL building
+        const BASE_URL = "https://raw.githubusercontent.com/KingAceBlack/saintNft2/main";
+        const HEAD_FILENAMES = ['AncientHelm','OrnateHelm','GreatHelm','FullHelm','Helm','DemonCrown','DragonsCrown','WarCap','LeatherCap','Cap','Crown','DivineHood','SilkHood','LinenHood','Hood'];
+        const CHEST_FILENAMES = ['DivineRobe','SilkRobe','LinenRobe','Robe','Shirt','DemonHusk','DragonskinArmor','StuddedLeatherArmor','HardLeatherArmor','LeatherArmor','HolyChestplate','OrnateChestplate','PlateMail','ChainMail','RingMail'];
+        const HAND_FILENAMES = ['HolyGauntlets','OrnateGauntlets','Gauntlets','ChainGloves','HeavyGloves','DemonsHands','DragonskinGloves','StuddedLeatherGloves','HardLeatherGloves','LeatherGloves','DivineGloves','SilkGloves','WoolGloves','LinenGloves','Gloves'];
+        const WAIST_FILENAMES = ['OrnateBelt','WarBelt','PlatedBelt','MeshBelt','HeavyBelt','DemonhideBelt','DragonskinBelt','StuddedLeatherBelt','HardLeatherBelt','LeatherBelt','BrightsilkSash','SilkSash','WoolSash','LinenSash','Sash'];
+        const FOOT_FILENAMES = ['HolyGreaves','OrnateGreaves','Greaves','ChainBoots','HeavyBoots','DemonhideBoots','DragonskinBoots','StuddedLeatherBoots','HardLeatherBoots','LeatherBoots','DivineSlippers','SilkSlippers','WoolShoes','LinenShoes','Shoes'];
+        const RING_FILENAMES = ['GoldRing','SilverRing','BronzeRing','PlatinumRing','TitaniumRing'];
+        const NECK_FILENAMES = ['Necklace','Amulet','Pendant'];
+        const WEAPON_FILENAMES = ['Warhammer','Quarterstaff','Maul','Mace','Club','Katana','Falchion','Scimitar','LongSword','ShortSword','GhostWand','GraveWand','BoneWand','Wand','Grimoire','Chronicle','Tome','Book'];
+        const ORDER_SUFFIX_IMG = ['Simple','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+        const ORDER_BG = ['NoOrder','Power','Giants','Titans','Skill','Perfection','Brilliance','Enlightenment','Protection','Anger','Rage','Fury','Vitriol','Fox','Detection','Reflection','Twins'];
+
+        const NO_ITEM = {
+            'head-gear': `${BASE_URL}/head-gear/NoHead_Simple.png`,
+            'chest-gear': `${BASE_URL}/chest-gear/NoChest_Simple.png`,
+            'hand-gear': `${BASE_URL}/hand-gear/NoHand_Simple.png`,
+            'waist-gear': `${BASE_URL}/waist-gear/NoWaist_Simple.png`,
+            'foot-gear': `${BASE_URL}/foot-gear/NoFoot_Simple.png`,
+            'ring-gear': `${BASE_URL}/ring-gear/HoS_Ring_6_NoRing_Simple.png`,
+            'neck-gear': `${BASE_URL}/neck-gear/NoNeck.png`,
+            'weapon': `${BASE_URL}/weapon/NoWeapon_Simple.png`,
+            'order-gear': `${BASE_URL}/order-gear/NoOrder.png`
+        };
+
+        function populateSelect(id, options, startIndex = 0) {
+            const select = document.getElementById(id);
+            select.innerHTML = '';
+            options.forEach((opt, i) => {
+                const option = document.createElement('option');
+                option.value = i + startIndex;
+                option.textContent = opt;
+                select.appendChild(option);
+            });
+        }
+
+        function initializeDropdowns() {
+            // Base items
+            populateSelect('headBase', HEADGEAR);
+            populateSelect('chestBase', CHESTGEAR);
+            populateSelect('handBase', HANDGEAR);
+            populateSelect('waistBase', WAISTGEAR);
+            populateSelect('footBase', FOOTGEAR);
+            populateSelect('ringBase', RINGS);
+            populateSelect('neckBase', NECKS);
+            populateSelect('weaponBase', WEAPONS);
+
+            // Suffixes (orders)
+            const slots = ['head', 'chest', 'hand', 'waist', 'foot', 'ring', 'neck', 'weapon'];
+            slots.forEach(slot => {
+                populateSelect(`${slot}Suffix`, SUFFIXES);
+                populateSelect(`${slot}NamePrefix`, NAME_PREFIXES);
+                populateSelect(`${slot}NameSuffix`, NAME_SUFFIXES);
+            });
+        }
+
+        async function loadSaintNamesFromContract() {
+            // Fallback names if we can't read from contract
+            const fallbackNames = ["Ezekiel","Bartholomew","Thaddeus","Cornelius","Maximilian","Augustine","Benedict","Clement","Dominic","Edmund","Ferdinand","Gregory","Ignatius","Jerome","Lazarus","Matthias","Nathaniel","Octavius","Percival","Quentin","Raphael","Sebastian","Theodore","Ulysses","Valentine","William","Xavier","Zachariah","Ambrose","Barnabas"];
+            const fallbackAdjectives = ["Brave","Wise","Holy","Just","Pure","Mighty","Noble","True","Blessed","Divine","Eternal","Fierce","Glorious","Humble","Immortal","Kind","Loyal","Merciful","Pious","Righteous","Sacred","Stalwart","Valiant","Zealous"];
+
+            saintNames = fallbackNames;
+            saintAdjectives = fallbackAdjectives;
+
+            populateSelect('saintName', saintNames);
+            populateSelect('saintAdjective', saintAdjectives);
+        }
+
+        function getSlotData(slot) {
+            return {
+                baseId: parseInt(document.getElementById(`${slot}Base`).value),
+                suffixId: parseInt(document.getElementById(`${slot}Suffix`).value),
+                namePrefixId: parseInt(document.getElementById(`${slot}NamePrefix`).value),
+                nameSuffixId: parseInt(document.getElementById(`${slot}NameSuffix`).value),
+                plusOne: document.getElementById(`${slot}PlusOne`).checked
+            };
+        }
+
+        function buildItemName(baseItems, slot) {
+            const data = getSlotData(slot);
+            let name = baseItems[data.baseId];
+            
+            if (data.suffixId > 0) {
+                name += " " + SUFFIXES[data.suffixId];
+            }
+            
+            if (data.namePrefixId > 0 && data.nameSuffixId > 0) {
+                const prefix = NAME_PREFIXES[data.namePrefixId];
+                const suffix = NAME_SUFFIXES[data.nameSuffixId];
+                if (data.plusOne) {
+                    name = `"${prefix} ${suffix}" ${name} +1`;
+                } else {
+                    name = `"${prefix} ${suffix}" ${name}`;
+                }
+            }
+            
+            return name;
+        }
+
+        function getMostCommonOrder() {
+            const slots = ['head', 'chest', 'hand', 'waist', 'foot', 'ring', 'neck', 'weapon'];
+            const counts = new Array(16).fill(0);
+            let orderCount = 0;
+            
+            slots.forEach(slot => {
+                const suffixId = parseInt(document.getElementById(`${slot}Suffix`).value);
+                if (suffixId > 0) {
+                    counts[suffixId - 1]++;
+                    orderCount++;
+                }
+            });
+            
+            if (orderCount < 2) return null;
+            
+            let maxCount = 0;
+            let result = 0;
+            for (let i = 0; i < 16; i++) {
+                if (counts[i] > maxCount) {
+                    maxCount = counts[i];
+                    result = i;
+                }
+            }
+            return result;
+        }
+
+        function updatePreview() {
+            // Update item previews
+            document.getElementById('headPreview').textContent = buildItemName(HEADGEAR, 'head');
+            document.getElementById('chestPreview').textContent = buildItemName(CHESTGEAR, 'chest');
+            document.getElementById('handPreview').textContent = buildItemName(HANDGEAR, 'hand');
+            document.getElementById('waistPreview').textContent = buildItemName(WAISTGEAR, 'waist');
+            document.getElementById('footPreview').textContent = buildItemName(FOOTGEAR, 'foot');
+            document.getElementById('ringPreview').textContent = buildItemName(RINGS, 'ring');
+            document.getElementById('neckPreview').textContent = buildItemName(NECKS, 'neck');
+            document.getElementById('weaponPreview').textContent = buildItemName(WEAPONS, 'weapon');
+
+            // Update saint name
+            const nameIdx = parseInt(document.getElementById('saintName').value);
+            const adjIdx = parseInt(document.getElementById('saintAdjective').value);
+            let saintFullName = `${saintNames[nameIdx]} the ${saintAdjectives[adjIdx]}`;
+            
+            const order = getMostCommonOrder();
+            if (order !== null) {
+                saintFullName += ` of ${ORDERS[order]}`;
+            }
+            
+            document.getElementById('saintNamePreview').textContent = saintFullName;
+
+            // Update canvas preview
+            renderPreview();
+        }
+
+        function buildImageUrl(folder, filenames, baseId, suffixId, namePrefixId, nameSuffixId) {
+            const baseName = filenames[baseId];
+            if (!baseName) return NO_ITEM[folder];
+            
+            const hasName = (namePrefixId > 0 && nameSuffixId > 0);
+            let suffix;
+            
+            if (suffixId === 0) {
+                suffix = hasName ? 'Plus1' : 'Simple';
+            } else {
+                const order = ORDER_SUFFIX_IMG[suffixId];
+                suffix = hasName ? `${order}_Plus1` : order;
+            }
+            
+            return `${BASE_URL}/${folder}/${baseName}_${suffix}.png`;
+        }
+
+        function loadImage(url, folder) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = () => {
+                    const fallback = new Image();
+                    fallback.crossOrigin = "anonymous";
+                    fallback.onload = () => resolve(fallback);
+                    fallback.onerror = () => resolve(fallback);
+                    fallback.src = NO_ITEM[folder];
+                };
+                img.src = url;
+            });
+        }
+
+        async function renderPreview() {
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const head = getSlotData('head');
+            const chest = getSlotData('chest');
+            const hand = getSlotData('hand');
+            const waist = getSlotData('waist');
+            const foot = getSlotData('foot');
+            const ring = getSlotData('ring');
+            const neck = getSlotData('neck');
+            const weapon = getSlotData('weapon');
+
+            const order = getMostCommonOrder();
+            const orderIndex = order !== null ? order + 1 : 0;
+
+            try {
+                const urls = {
+                    chest: buildImageUrl('chest-gear', CHEST_FILENAMES, chest.baseId, chest.suffixId, chest.namePrefixId, chest.nameSuffixId),
+                    waist: buildImageUrl('waist-gear', WAIST_FILENAMES, waist.baseId, waist.suffixId, waist.namePrefixId, waist.nameSuffixId),
+                    foot: buildImageUrl('foot-gear', FOOT_FILENAMES, foot.baseId, foot.suffixId, foot.namePrefixId, foot.nameSuffixId),
+                    neck: buildImageUrl('neck-gear', NECK_FILENAMES, neck.baseId, neck.suffixId, neck.namePrefixId, neck.nameSuffixId),
+                    hand: buildImageUrl('hand-gear', HAND_FILENAMES, hand.baseId, hand.suffixId, hand.namePrefixId, hand.nameSuffixId),
+                    ring: buildImageUrl('ring-gear', RING_FILENAMES, ring.baseId, ring.suffixId, ring.namePrefixId, ring.nameSuffixId),
+                    order: `${BASE_URL}/order-gear/${ORDER_BG[orderIndex]}.png`,
+                    head: buildImageUrl('head-gear', HEAD_FILENAMES, head.baseId, head.suffixId, head.namePrefixId, head.nameSuffixId),
+                    weapon: buildImageUrl('weapon', WEAPON_FILENAMES, weapon.baseId, weapon.suffixId, weapon.namePrefixId, weapon.nameSuffixId)
+                };
+
+                const [chestImg, waistImg, footImg, neckImg, handImg, ringImg, orderImg, headImg, weaponImg] = await Promise.all([
+                    loadImage(urls.chest, 'chest-gear'),
+                    loadImage(urls.waist, 'waist-gear'),
+                    loadImage(urls.foot, 'foot-gear'),
+                    loadImage(urls.neck, 'neck-gear'),
+                    loadImage(urls.hand, 'hand-gear'),
+                    loadImage(urls.ring, 'ring-gear'),
+                    loadImage(urls.order, 'order-gear'),
+                    loadImage(urls.head, 'head-gear'),
+                    loadImage(urls.weapon, 'weapon')
+                ]);
+
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.drawImage(chestImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(waistImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(footImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(neckImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(handImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(ringImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(orderImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(headImg, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(weaponImg, 0, 0, canvas.width, canvas.height);
+
+            } catch (error) {
+                console.error('Error rendering preview:', error);
+            }
+        }
+
+        function randomizeAll() {
+            // Randomize base items
+            document.getElementById('headBase').value = Math.floor(Math.random() * HEADGEAR.length);
+            document.getElementById('chestBase').value = Math.floor(Math.random() * CHESTGEAR.length);
+            document.getElementById('handBase').value = Math.floor(Math.random() * HANDGEAR.length);
+            document.getElementById('waistBase').value = Math.floor(Math.random() * WAISTGEAR.length);
+            document.getElementById('footBase').value = Math.floor(Math.random() * FOOTGEAR.length);
+            document.getElementById('ringBase').value = Math.floor(Math.random() * RINGS.length);
+            document.getElementById('neckBase').value = Math.floor(Math.random() * NECKS.length);
+            document.getElementById('weaponBase').value = Math.floor(Math.random() * WEAPONS.length);
+
+            // Randomize with Loot-style greatness distribution
+            const slots = ['head', 'chest', 'hand', 'waist', 'foot', 'ring', 'neck', 'weapon'];
+            slots.forEach(slot => {
+                const greatness = Math.floor(Math.random() * 21);
+                
+                if (greatness > 14) {
+                    document.getElementById(`${slot}Suffix`).value = Math.floor(Math.random() * 16) + 1;
+                } else {
+                    document.getElementById(`${slot}Suffix`).value = 0;
+                }
+                
+                if (greatness >= 19) {
+                    document.getElementById(`${slot}NamePrefix`).value = Math.floor(Math.random() * 69) + 1;
+                    document.getElementById(`${slot}NameSuffix`).value = Math.floor(Math.random() * 18) + 1;
+                    document.getElementById(`${slot}PlusOne`).checked = (greatness === 20);
+                } else {
+                    document.getElementById(`${slot}NamePrefix`).value = 0;
+                    document.getElementById(`${slot}NameSuffix`).value = 0;
+                    document.getElementById(`${slot}PlusOne`).checked = false;
+                }
+            });
+
+            // Randomize saint name
+            document.getElementById('saintName').value = Math.floor(Math.random() * saintNames.length);
+            document.getElementById('saintAdjective').value = Math.floor(Math.random() * saintAdjectives.length);
+
+            updatePreview();
+        }
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask!');
+                    return;
+                }
+
+                const baseSepolia = {
+                    chainId: '0x14a34',
+                    chainName: 'Base Sepolia',
+                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                    rpcUrls: ['https://sepolia.base.org'],
+                    blockExplorerUrls: ['https://sepolia.basescan.org']
+                };
+
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: baseSepolia.chainId }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [baseSepolia]
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                }
+
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAddress = accounts[0];
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                document.getElementById('walletStatus').textContent = 'Connected: ';
+                document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                document.getElementById('connectBtn').textContent = 'Connected';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('mintBtn').disabled = false;
+                document.getElementById('mintBtn').textContent = '⚔️ Forge Saint';
+                showStatus('Ready to forge your Saint!', '');
+
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) location.reload();
+                    else {
+                        userAddress = accounts[0];
+                        document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                    }
+                });
+
+                window.ethereum.on('chainChanged', () => location.reload());
+
+            } catch (error) {
+                console.error('Wallet connection error:', error);
+                showStatus('Failed to connect: ' + error.message, 'error');
+            }
+        }
+
+        async function customMint() {
+            const mintBtn = document.getElementById('mintBtn');
+
+            try {
+                mintBtn.disabled = true;
+                showStatus('<div class="spinner"></div> Preparing transaction...', 'loading');
+
+                const head = getSlotData('head');
+                const chest = getSlotData('chest');
+                const hand = getSlotData('hand');
+                const waist = getSlotData('waist');
+                const foot = getSlotData('foot');
+                const ring = getSlotData('ring');
+                const neck = getSlotData('neck');
+                const weapon = getSlotData('weapon');
+                const saintNameId = parseInt(document.getElementById('saintName').value);
+                const saintAdjectiveId = parseInt(document.getElementById('saintAdjective').value);
+
+                const tx = await contract.customMint(
+                    head, chest, hand, waist, foot, ring, neck, weapon,
+                    saintNameId, saintAdjectiveId
+                );
+
+                showStatus('<div class="spinner"></div> Forging in progress... Waiting for confirmation', 'loading');
+
+                const receipt = await tx.wait();
+                const mintedEvent = receipt.events.find(e => e.event === 'Minted');
+                const tokenId = mintedEvent.args.id.toString();
+
+                showStatus('✅ Successfully forged Saint #' + tokenId + '!', 'success');
+
+                // Show OpenSea link
+                const network = await provider.getNetwork();
+                let openseaUrl;
+                if (network.chainId === 8453) {
+                    openseaUrl = `https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tokenId}`;
+                } else if (network.chainId === 84532) {
+                    openseaUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${tokenId}`;
+                } else {
+                    openseaUrl = `https://opensea.io/assets/${CONTRACT_ADDRESS}/${tokenId}`;
+                }
+                document.getElementById('openseaLink').href = openseaUrl;
+                document.getElementById('nftResult').classList.add('show');
+
+                mintBtn.disabled = false;
+
+            } catch (error) {
+                console.error('Minting error:', error);
+                let errorMsg = 'Minting failed';
+                if (error.code === 4001) {
+                    errorMsg = 'Transaction rejected by user';
+                } else if (error.reason) {
+                    errorMsg = error.reason;
+                } else if (error.message) {
+                    errorMsg = error.message;
+                }
+                showStatus('❌ ' + errorMsg, 'error');
+                mintBtn.disabled = false;
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = message;
+            statusDiv.className = 'status-message ' + type;
+        }
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            initializeDropdowns();
+            await loadSaintNamesFromContract();
+            updatePreview();
+
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error('Error checking wallet:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
